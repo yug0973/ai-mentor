@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: ai-mentor-engine
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: starter # free spins down after 15min idle — the backend calls this
+                  # service synchronously on interview/roadmap/nudge/review
+                  # requests, so a cold start would show up as request latency
+                  # (and worse, could time out the calling request). Use
+                  # starter or higher in production, same reasoning as
+                  # backend/render.yaml.
+    region: oregon # keep in the same region as the backend service to avoid
+                    # cross-region latency on every call
+    branch: main
+    healthCheckPath: /health
+    envVars:
+      - key: LLM_API_KEY
+        sync: false # your Gemini API key from https://aistudio.google.com/
+      - key: LLM_BASE_URL
+        value: https://generativelanguage.googleapis.com/v1beta/openai/
+      - key: LLM_MODEL
+        value: gemini-2.5-flash
+      - key: INTENT_LLM_MODEL
+        value: gemini-2.5-flash
+      - key: MOCK_LLM
+        value: false
+      - key: ALLOWED_ORIGINS
+        sync: false # your deployed backend URL — fill in on deploy (backend
+                    # is the only caller; no need to allow "*" in production)
