@@ -1,0 +1,24 @@
+version: "3.9"
+
+services:
+  mentor-ai-engine:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - LLM_API_KEY=${LLM_API_KEY}
+      - LLM_BASE_URL=${LLM_BASE_URL:-https://api.groq.com/openai/v1}
+      - LLM_MODEL=${LLM_MODEL:-llama-3.3-70b-versatile}
+      - MOCK_LLM=${MOCK_LLM:-false}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-*}
+    restart: unless-stopped
+
+  # Backend team: add your own service here as a sibling container,
+  # and point its internal calls at http://mentor-ai-engine:8000
+  # e.g.
+  # backend-api:
+  #   build: ../backend
+  #   ports:
+  #     - "5000:5000"
+  #   depends_on:
+  #     - mentor-ai-engine

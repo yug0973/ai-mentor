@@ -1,0 +1,59 @@
+services:
+  - type: web
+    name: ai-mentor-backend
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: starter # free spins down after 15min idle, which silently breaks the
+                  # node-cron nudge/weekly-review jobs — use starter or higher
+                  # in production. See README "Phase 6" for details.
+    region: oregon
+    branch: main
+    numInstances: 1 # keep at 1 — node-cron runs in-process; 2+ instances would
+                     # fire duplicate nudges/reviews. Move cron to Render's
+                     # native Cron Job service type before scaling out.
+    healthCheckPath: /health
+    preDeployCommand: npx prisma migrate deploy
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 4000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ai-mentor-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: ENGINE_BASE_URL
+        sync: false # your deployed mentor_ai_engine URL (interview/roadmap/nudges/reviews/feedback) — fill in on deploy
+      - key: CORS_ORIGIN
+        sync: false # your deployed frontend URL — fill in on deploy
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: 587
+      - key: SMTP_SECURE
+        value: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_FROM
+        value: "AI Mentor <no-reply@ai-mentor.app>"
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_SUBJECT
+        value: "mailto:support@ai-mentor.app"
+
+databases:
+  - name: ai-mentor-db
+    databaseName: ai_mentor
+    plan: free # Render Postgres free tier: 1GB storage, 256MB RAM, no backups,
+               # and it's HARD-DELETED 30 days after creation (14-day grace
+               # period to upgrade before data loss). Fine to develop against,
+               # but set a reminder or upgrade to "basic-256mb" before it matters.

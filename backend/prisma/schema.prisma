@@ -1,0 +1,222 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -----------------------------------------------------------------------
+// Phase 2 adds: learner_profiles, interview_sessions, roadmaps,
+// sessions_log — the tables backing the four Phase 2 gateway APIs
+// (Profile, Interview, Roadmap, Study Session).
+//
+// Still deferred to Phase 4 (scheduled jobs): mastery_scores, nudges_log,
+// feedback_events — these are written by the daily/weekly cron jobs, so
+// there's no writer for them yet.
+// -----------------------------------------------------------------------
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  emailVerified Boolean @default(false) @map("email_verified")
+  phoneNumber  String?  @map("phone_number")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  learnerProfile   LearnerProfile?
+  interviewSessions InterviewSession[]
+  roadmaps         Roadmap[]
+  sessionLogs      SessionLog[]
+  masteryScores    MasteryScore[]
+  nudgeLogs        NudgeLog[]
+  feedbackEvents   FeedbackEvent[]
+  engineFeedbackEvents EngineFeedbackEvent[]
+  pushSubscriptions PushSubscription[]
+  emailOtps        EmailOtp[]
+
+  @@map("users")
+}
+
+model EmailOtp {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash  String   @map("code_hash")
+  expiresAt DateTime @map("expires_at")
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("email_otps")
+}
+
+model LearnerProfile {
+  id                     String   @id @default(uuid())
+  userId                 String   @unique @map("user_id")
+  goal                   String
+  domain                 String
+  currentLevel           String   @map("current_level")
+  timelineWeeks          Int      @map("timeline_weeks")
+  hoursPerWeek           Int      @map("hours_per_week")
+  knownSkills            String[] @map("known_skills")
+  weakAreas              String[] @map("weak_areas")
+  preferredLearningStyle String   @map("preferred_learning_style")
+  motivationType         String   @map("motivation_type")
+  constraints            String?
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("learner_profiles")
+}
+
+enum InterviewStatus {
+  IN_PROGRESS
+  COMPLETED
+  ABANDONED
+}
+
+model InterviewSession {
+  id                  String          @id @default(uuid())
+  userId              String          @map("user_id")
+  status              InterviewStatus @default(IN_PROGRESS)
+  conversationHistory Json            @map("conversation_history")
+  engineSessionId     String?         @unique @map("engine_session_id")
+  isSpeech            Boolean         @default(false) @map("is_speech")
+  createdAt           DateTime        @default(now()) @map("created_at")
+  updatedAt           DateTime        @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("interview_sessions")
+}
+
+model Roadmap {
+  id                         String   @id @default(uuid())
+  userId                     String   @map("user_id")
+  goal                       String
+  milestones                 Json
+  progressPercent            Int      @default(0) @map("progress_percent")
+  resources Json?
+  engineRoadmapId            String?  @unique @map("engine_roadmap_id")
+  generatedFromProfileVersion String? @map("generated_from_profile_version")
+  createdAt                  DateTime @default(now()) @map("created_at")
+  updatedAt                  DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("roadmaps")
+}
+
+model SessionLog {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  duration   Int
+  topics     String[]
+  difficulty String
+  notes      String?
+  date       DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions_log")
+}
+
+// -----------------------------------------------------------------------
+// Phase 4 adds: mastery_scores, nudges_log, feedback_events — all written
+// by the node-cron scheduled jobs (daily nudges, weekly reviews), not by
+// direct gateway endpoints.
+// -----------------------------------------------------------------------
+
+model MasteryScore {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  topicId      String   @map("topic_id")
+  masteryScore Float    @map("mastery_score")
+  lastUpdated  DateTime @updatedAt @map("last_updated")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, topicId])
+  @@index([userId])
+  @@map("mastery_scores")
+}
+
+model NudgeLog {
+  id              String   @id @default(uuid())
+  userId          String   @map("user_id")
+  message         String
+  triggerReason   String   @map("trigger_reason")
+  suggestedAction String?  @map("suggested_action")
+  sentAt          DateTime @default(now()) @map("sent_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("nudges_log")
+}
+
+model FeedbackEvent {
+  id                    String   @id @default(uuid())
+  userId                String   @map("user_id")
+  summary               String
+  recommendations       Json
+  masteryScoresSnapshot Json     @map("mastery_scores_snapshot")
+  createdAt             DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("feedback_events")
+}
+
+// -----------------------------------------------------------------------
+// mentor_ai_engine integration: Phase 8's feedback/eval-harness events.
+// Deliberately a separate table from FeedbackEvent above — that one is the
+// weekly-review-cron summary; this one is discrete UI-driven events
+// ("nudge_shown", "roadmap_change_accepted", etc.) that feed the engine's
+// own eval harness via GET /feedback/summary.
+// -----------------------------------------------------------------------
+
+model EngineFeedbackEvent {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  eventType    String   @map("event_type")
+  referenceId  String   @map("reference_id")
+  outcomeNote  String?  @map("outcome_note")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("engine_feedback_events")
+}
+
+// -----------------------------------------------------------------------
+// Phase 5: real notification delivery. Email uses the user's existing
+// `email` column, so no new table is needed there. Browser push needs
+// somewhere to store each subscribed device's endpoint + keys.
+// -----------------------------------------------------------------------
+
+model PushSubscription {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_subscriptions")
+}

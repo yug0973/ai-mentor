@@ -1,0 +1,1283 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Mentor AI Engine",
+    "description": "Decision-making engine for the AI mentor: goal understanding, intent parsing, roadmap generation, adaptive planning, nudges, weekly reviews, and feedback loop.",
+    "version": "0.8.0-phase8"
+  },
+  "paths": {
+    "/roadmap/generate": {
+      "post": {
+        "tags": [
+          "Phase 2: Roadmap Generator"
+        ],
+        "summary": "Generate Roadmap",
+        "description": "Takes a completed LearnerProfile (output of Phase 1) and returns a\nmilestone/topic roadmap (DAG).\n\nReal mode: two-pass generation \u2014 coarse milestones, then per-milestone\ntopic expansion with prerequisite tracking (see app/roadmap/generator.py).\n\nMock mode (MOCK_LLM=true): fixed mock data, same as the original stub.\n\nEvery path records a metric event (see app/metrics.py, GET /metrics) so\nfallback-to-mock rate is visible without needing external monitoring \u2014\nif real generation starts failing more than expected (e.g. Groq free\ntier flakiness), `roadmap_generation_fallback` will show it.\n\nEvery path also saves the returned roadmap into app/roadmap/store.py \u2014\nPhase 4 (`/roadmap/adapt`) looks roadmaps up by `roadmap_id` from there,\nsince QuizResult only carries the id, not the roadmap itself (backend\nowns long-term persistence; this is just this service's working copy).",
+        "operationId": "generate_roadmap_roadmap_generate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerateRoadmapRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Roadmap"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/roadmap/{roadmap_id}": {
+      "get": {
+        "tags": [
+          "Phase 2: Roadmap Generator"
+        ],
+        "summary": "Get Roadmap",
+        "description": "Debug/ops endpoint \u2014 NOT part of the frozen phase API_CONTRACT, same\nstatus as GET /metrics. Lets you inspect this service's in-memory copy\nof a roadmap (e.g. to see what Phase 4 changed after an /adapt call)\nwithout needing backend's persistence layer in the loop.",
+        "operationId": "get_roadmap_roadmap__roadmap_id__get",
+        "parameters": [
+          {
+            "name": "roadmap_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Roadmap Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Roadmap"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sessions/log": {
+      "post": {
+        "tags": [
+          "Phase 3: Session Tracker"
+        ],
+        "summary": "Log Session",
+        "description": "Frontend calls this every time a learner finishes a study session.\nUpdates per-topic mastery scores using an exponential-approach model\n(see app/memory/mastery.py: MASTERY_MODEL_VERSION) and returns the\ndeltas. Session history is retained in-memory for later phases\n(Phase 6 nudges, Phase 7 weekly review) to read from.",
+        "operationId": "log_session_sessions_log_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionLogRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionLogResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/roadmap/adapt": {
+      "post": {
+        "tags": [
+          "Phase 4: Adaptive Roadmap Engine"
+        ],
+        "summary": "Adapt Roadmap",
+        "description": "Backend calls this after a learner submits a checkpoint quiz.\n\nReal mode: looks up the roadmap in app/roadmap/store.py (populated by\n/roadmap/generate), reads current Phase 3 mastery scores for the\nlearner, and decides per-topic whether to insert a remediation topic\n(weak topic detection combines quiz score + mastery \u2014 see\napp/adaptive/rules.py), whether to mark the milestone's topics\ncompleted (quiz passed), and whether that unlocks anything downstream.\nRemediation topic *content* comes from one targeted LLM call scoped to\njust the flagged topics \u2014 not a full roadmap regeneration.\n\nFalls back to mock output (not a 500) if: MOCK_LLM=true, the\nroadmap_id isn't in this service's in-memory store (different process,\nrestart, or a roadmap this service never generated), or the\nmilestone_id doesn't exist on that roadmap. Every path records a\nmetric event (see app/metrics.py, GET /metrics).",
+        "operationId": "adapt_roadmap_roadmap_adapt_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuizResult"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdaptRoadmapResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/intent/classify": {
+      "post": {
+        "tags": [
+          "Phase 5: Intent Parser"
+        ],
+        "summary": "Classify Intent",
+        "description": "Called on every learner message during ongoing (post-onboarding)\nconversation, to route it to the right downstream handler (e.g.\nsurfacing frustration to a nudge, or routing a quiz-style reply into\nthe Phase 4 adaptive pipeline instead of general chat).\n\nReal mode: cheap deterministic shortcuts first (empty message, bare\nquiz-option reply), otherwise one fast-tier LLM call. Falls back to a\nlow-confidence keyword guess (not a 500) if the LLM never returns\nparseable output after one retry. Every path records a metric event\n(see app/metrics.py, GET /metrics).",
+        "operationId": "classify_intent_intent_classify_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClassifyIntentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassifyIntentResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/nudges/check/{user_id}": {
+      "get": {
+        "tags": [
+          "Phase 6: Motivation Detector / Nudges"
+        ],
+        "summary": "Check Nudge",
+        "description": "Backend's scheduled job (e.g. daily cron) calls this per user to check\nwhether a motivational nudge should be sent.\n\nReal mode: reads the user's Phase 3 session history and mastery scores\nand applies deterministic rules for inactivity (two severity tiers),\na drop in session frequency week-over-week, and struggling on recently\ncovered topics (self-rated difficulty + mastery scores). If more than\none signal fires, the most urgent one wins (see\napp/nudges/rules.py::detect_nudge). A user with no session history at\nall gets nudge_triggered=False (there's no history to detect a *drop*\nagainst yet), same as a user who's currently on track.",
+        "operationId": "check_nudge_nudges_check__user_id__get",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NudgeCheckResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/reviews/weekly/{user_id}": {
+      "post": {
+        "tags": [
+          "Phase 7: Weekly Review Generator"
+        ],
+        "summary": "Generate Weekly Review",
+        "description": "Backend's scheduled weekly job calls this per user.\n\nReal mode: aggregates the user's Phase 3 session history over the\ntrailing 7 days into sessions_completed / total_hours, reconstructs each\ntouched topic's mastery delta across the week to sort it into\ntopics_improved vs. topics_stagnant, pulls goal_progress_percent from\nthis service's roadmap copy if available, and picks one focus_topic for\nnext week (preferring a stagnant topic over an untouched one). A\ntargeted LLM call then phrases next_week_focus and motivational_insight\nfrom those facts (see app/reviews/engine.py). A user with zero session\nhistory ever gets a fully deterministic \"get started\" response with no\nLLM call at all.",
+        "operationId": "generate_weekly_review_reviews_weekly__user_id__post",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WeeklyReviewResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/feedback/event": {
+      "post": {
+        "tags": [
+          "Phase 8: Feedback Loop"
+        ],
+        "summary": "Log Feedback Event",
+        "description": "Call this whenever a learner interacts with a nudge or roadmap change\n(shown/followed/ignored/accepted/reverted). Persisted in-memory\n(app/feedback/store.py) and feeds GET /feedback/summary's eval-harness\naggregation.",
+        "operationId": "log_feedback_event_feedback_event_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedbackEventRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackEventResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/feedback/summary": {
+      "get": {
+        "tags": [
+          "Phase 8: Feedback Loop"
+        ],
+        "summary": "Feedback Summary",
+        "description": "Debug/ops endpoint, NOT part of the frozen phase API_CONTRACT (same\ncarve-out as GET /metrics) \u2014 the Phase 8 eval harness view over logged\nfeedback: nudge follow-through rate (nudge_followed vs. nudge_ignored),\nroadmap change acceptance rate (accepted vs. reverted), and raw event\ncounts. Pass ?user_id= to scope to one learner instead of the whole\nin-memory store. Rates are `null` (not 0.0) when there's no data yet for\nthat ratio, so \"no data\" and \"0% rate\" aren't confused.\n\nNOTE: this can't yet break rates down by nudge trigger_reason or\nadaptive change type \u2014 the frozen FeedbackEventRequest schema only\ncarries a reference_id, not that context. See app/feedback/eval.py for\nthe full caveat; a schema addition would be a breaking change to flag,\nnot something to silently work around here.",
+        "operationId": "feedback_summary_feedback_summary_get",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Health Check",
+        "operationId": "health_check_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metrics": {
+      "get": {
+        "summary": "Metrics",
+        "description": "Debug/ops endpoint \u2014 NOT part of the frozen phase API_CONTRACT, just an\ninternal visibility hook. Returns in-memory event counters since process\nstart (see app/metrics.py). Useful for spotting things like\nroadmap_generation_fallback creeping up (real LLM generation degrading\nto mock more often than expected).",
+        "operationId": "metrics_metrics_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/interview/start": {
+      "post": {
+        "summary": "Start Interview",
+        "description": "Call this when a new learner begins onboarding.\nReturns a session_id the frontend must send back with every subsequent message.",
+        "operationId": "start_interview_interview_start_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartInterviewResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/interview/message": {
+      "post": {
+        "summary": "Send Interview Message",
+        "description": "Call this with the learner's reply to the mentor's last question.\n- status == \"in_progress\"  -> show `mentor_message` as the next question\n- status == \"complete\"     -> interview is done, `learner_profile` is the\n                               structured output to hand off to Phase 2\n                               (Roadmap Generator).",
+        "operationId": "send_interview_message_interview_message_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InterviewMessageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InterviewMessageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/interview/{session_id}": {
+      "get": {
+        "summary": "Get Interview Status",
+        "description": "Poll the current state of an interview session (useful for the frontend to resume).",
+        "operationId": "get_interview_status_interview__session_id__get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InterviewMessageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AdaptRoadmapResponse": {
+        "properties": {
+          "roadmap_id": {
+            "type": "string",
+            "title": "Roadmap Id"
+          },
+          "changed": {
+            "type": "boolean",
+            "title": "Changed"
+          },
+          "change_summary": {
+            "type": "string",
+            "title": "Change Summary"
+          },
+          "updated_roadmap": {
+            "$ref": "#/components/schemas/Roadmap"
+          }
+        },
+        "type": "object",
+        "required": [
+          "roadmap_id",
+          "changed",
+          "change_summary",
+          "updated_roadmap"
+        ],
+        "title": "AdaptRoadmapResponse"
+      },
+      "ClassifyIntentRequest": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "message"
+        ],
+        "title": "ClassifyIntentRequest"
+      },
+      "ClassifyIntentResponse": {
+        "properties": {
+          "intent": {
+            "type": "string",
+            "enum": [
+              "asking_question",
+              "reporting_progress",
+              "expressing_frustration",
+              "requesting_change",
+              "off_topic",
+              "quiz_response"
+            ],
+            "title": "Intent"
+          },
+          "confidence": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence"
+          }
+        },
+        "type": "object",
+        "required": [
+          "intent",
+          "confidence"
+        ],
+        "title": "ClassifyIntentResponse"
+      },
+      "FeedbackEventRequest": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "event_type": {
+            "type": "string",
+            "enum": [
+              "nudge_shown",
+              "nudge_followed",
+              "nudge_ignored",
+              "roadmap_change_accepted",
+              "roadmap_change_reverted"
+            ],
+            "title": "Event Type"
+          },
+          "reference_id": {
+            "type": "string",
+            "title": "Reference Id",
+            "description": "e.g. nudge_id or roadmap_id this feedback relates to"
+          },
+          "outcome_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome Note"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "event_type",
+          "reference_id"
+        ],
+        "title": "FeedbackEventRequest"
+      },
+      "FeedbackEventResponse": {
+        "properties": {
+          "logged": {
+            "type": "boolean",
+            "title": "Logged"
+          }
+        },
+        "type": "object",
+        "required": [
+          "logged"
+        ],
+        "title": "FeedbackEventResponse"
+      },
+      "GenerateRoadmapRequest": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "learner_profile": {
+            "$ref": "#/components/schemas/LearnerProfile"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "learner_profile"
+        ],
+        "title": "GenerateRoadmapRequest"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "InterviewMessageRequest": {
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "title": "Session Id"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_id",
+          "message"
+        ],
+        "title": "InterviewMessageRequest"
+      },
+      "InterviewMessageResponse": {
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "title": "Session Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "in_progress",
+              "complete"
+            ],
+            "title": "Status"
+          },
+          "mentor_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mentor Message"
+          },
+          "learner_profile": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LearnerProfile"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_id",
+          "status"
+        ],
+        "title": "InterviewMessageResponse"
+      },
+      "LearnerProfile": {
+        "properties": {
+          "goal": {
+            "type": "string",
+            "title": "Goal",
+            "description": "What the learner wants to achieve, e.g. 'job-ready in backend dev'"
+          },
+          "domain": {
+            "type": "string",
+            "title": "Domain",
+            "description": "Tech/coding sub-domain, e.g. 'web dev', 'DSA', 'ML', 'mobile'"
+          },
+          "current_level": {
+            "type": "string",
+            "enum": [
+              "beginner",
+              "intermediate",
+              "advanced"
+            ],
+            "title": "Current Level"
+          },
+          "timeline_weeks": {
+            "type": "integer",
+            "maximum": 104.0,
+            "minimum": 1.0,
+            "title": "Timeline Weeks"
+          },
+          "hours_per_week": {
+            "type": "integer",
+            "maximum": 80.0,
+            "minimum": 1.0,
+            "title": "Hours Per Week"
+          },
+          "known_skills": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Known Skills"
+          },
+          "weak_areas": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Weak Areas"
+          },
+          "preferred_learning_style": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preferred Learning Style",
+            "description": "e.g. 'project-based', 'video', 'reading docs'"
+          },
+          "motivation_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Motivation Type",
+            "description": "e.g. 'career-switch', 'exam prep', 'curiosity'"
+          },
+          "constraints": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Constraints",
+            "description": "e.g. 'works full-time', 'exam in March'"
+          }
+        },
+        "type": "object",
+        "required": [
+          "goal",
+          "domain",
+          "current_level",
+          "timeline_weeks",
+          "hours_per_week"
+        ],
+        "title": "LearnerProfile"
+      },
+      "NudgeCheckResponse": {
+        "properties": {
+          "nudge_triggered": {
+            "type": "boolean",
+            "title": "Nudge Triggered"
+          },
+          "nudge_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nudge Message"
+          },
+          "suggested_action": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggested Action"
+          },
+          "trigger_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trigger Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "nudge_triggered"
+        ],
+        "title": "NudgeCheckResponse"
+      },
+      "QuizResult": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "roadmap_id": {
+            "type": "string",
+            "title": "Roadmap Id"
+          },
+          "milestone_id": {
+            "type": "string",
+            "title": "Milestone Id"
+          },
+          "quiz_id": {
+            "type": "string",
+            "title": "Quiz Id"
+          },
+          "score_percent": {
+            "type": "number",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Score Percent"
+          },
+          "topic_breakdown": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Topic Breakdown",
+            "description": "topic_id -> score_percent on that topic"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "roadmap_id",
+          "milestone_id",
+          "quiz_id",
+          "score_percent"
+        ],
+        "title": "QuizResult"
+      },
+      "Roadmap": {
+        "properties": {
+          "roadmap_id": {
+            "type": "string",
+            "title": "Roadmap Id"
+          },
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "goal": {
+            "type": "string",
+            "title": "Goal"
+          },
+          "milestones": {
+            "items": {
+              "$ref": "#/components/schemas/RoadmapMilestone"
+            },
+            "type": "array",
+            "title": "Milestones"
+          },
+          "progress_percent": {
+            "type": "number",
+            "title": "Progress Percent",
+            "default": 0.0
+          },
+          "generated_from_profile_version": {
+            "type": "string",
+            "title": "Generated From Profile Version",
+            "default": "v1"
+          }
+        },
+        "type": "object",
+        "required": [
+          "roadmap_id",
+          "user_id",
+          "goal",
+          "milestones"
+        ],
+        "title": "Roadmap"
+      },
+      "RoadmapMilestone": {
+        "properties": {
+          "milestone_id": {
+            "type": "string",
+            "title": "Milestone Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "topics": {
+            "items": {
+              "$ref": "#/components/schemas/RoadmapTopic"
+            },
+            "type": "array",
+            "title": "Topics"
+          },
+          "checkpoint_quiz_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checkpoint Quiz Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "milestone_id",
+          "title",
+          "topics"
+        ],
+        "title": "RoadmapMilestone"
+      },
+      "RoadmapTopic": {
+        "properties": {
+          "topic_id": {
+            "type": "string",
+            "title": "Topic Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "estimated_hours": {
+            "type": "integer",
+            "title": "Estimated Hours"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "locked",
+              "available",
+              "in_progress",
+              "completed"
+            ],
+            "title": "Status",
+            "default": "available"
+          },
+          "prerequisites": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Prerequisites",
+            "description": "List of topic_ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "topic_id",
+          "title",
+          "description",
+          "estimated_hours"
+        ],
+        "title": "RoadmapTopic"
+      },
+      "SessionLogRequest": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "roadmap_id": {
+            "type": "string",
+            "title": "Roadmap Id"
+          },
+          "topic_ids_covered": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Topic Ids Covered"
+          },
+          "duration_minutes": {
+            "type": "integer",
+            "title": "Duration Minutes"
+          },
+          "self_rated_difficulty": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "easy",
+                  "medium",
+                  "hard"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Self Rated Difficulty"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "roadmap_id",
+          "topic_ids_covered",
+          "duration_minutes"
+        ],
+        "title": "SessionLogRequest"
+      },
+      "SessionLogResponse": {
+        "properties": {
+          "logged": {
+            "type": "boolean",
+            "title": "Logged"
+          },
+          "updated_mastery": {
+            "items": {
+              "$ref": "#/components/schemas/TopicMastery"
+            },
+            "type": "array",
+            "title": "Updated Mastery"
+          }
+        },
+        "type": "object",
+        "required": [
+          "logged",
+          "updated_mastery"
+        ],
+        "title": "SessionLogResponse"
+      },
+      "StartInterviewResponse": {
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "title": "Session Id"
+          },
+          "mentor_message": {
+            "type": "string",
+            "title": "Mentor Message"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "in_progress"
+            ],
+            "const": "in_progress",
+            "title": "Status",
+            "default": "in_progress"
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_id",
+          "mentor_message"
+        ],
+        "title": "StartInterviewResponse"
+      },
+      "TopicMastery": {
+        "properties": {
+          "topic_id": {
+            "type": "string",
+            "title": "Topic Id"
+          },
+          "mastery_score": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Mastery Score"
+          },
+          "last_updated": {
+            "type": "string",
+            "title": "Last Updated"
+          }
+        },
+        "type": "object",
+        "required": [
+          "topic_id",
+          "mastery_score",
+          "last_updated"
+        ],
+        "title": "TopicMastery"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "WeeklyReviewResponse": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "week_start": {
+            "type": "string",
+            "title": "Week Start"
+          },
+          "week_end": {
+            "type": "string",
+            "title": "Week End"
+          },
+          "sessions_completed": {
+            "type": "integer",
+            "title": "Sessions Completed"
+          },
+          "total_hours": {
+            "type": "number",
+            "title": "Total Hours"
+          },
+          "topics_improved": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Topics Improved"
+          },
+          "topics_stagnant": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Topics Stagnant"
+          },
+          "goal_progress_percent": {
+            "type": "number",
+            "title": "Goal Progress Percent"
+          },
+          "next_week_focus": {
+            "type": "string",
+            "title": "Next Week Focus"
+          },
+          "motivational_insight": {
+            "type": "string",
+            "title": "Motivational Insight"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "week_start",
+          "week_end",
+          "sessions_completed",
+          "total_hours",
+          "topics_improved",
+          "topics_stagnant",
+          "goal_progress_percent",
+          "next_week_focus",
+          "motivational_insight"
+        ],
+        "title": "WeeklyReviewResponse"
+      }
+    }
+  }
+}

@@ -1,0 +1,48 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ai_mentor
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  # mentor_ai_engine — the only AI service this stack talks to (interview,
+  # roadmap, nudges, reviews, feedback). No voice/audio, so mentor-brain
+  # (TTS) is not part of this compose file at all.
+  mentor-ai-engine:
+    build: ../mentor_ai_engine
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - ../mentor_ai_engine/.env
+
+  backend:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    env_file:
+      - .env
+    environment:
+      # Overrides the .env value (which is meant for running the backend
+      # outside Docker) — inside the compose network, "localhost" would
+      # point at the backend container itself, not its sibling services.
+      ENGINE_BASE_URL: http://mentor-ai-engine:8000
+      DATABASE_URL: "postgresql://postgres:postgres@postgres:5432/ai_mentor?schema=public"
+      # The production Docker image never installs pino-pretty (it's a
+      # dev-only pretty-printer, stripped by `npm ci --omit=dev`). If
+      # NODE_ENV=development leaks in from .env, logger.ts tries to load
+      # a transport that was never installed in this image and crashes.
+      NODE_ENV: production
+    depends_on:
+      - postgres
+      - mentor-ai-engine
+
+volumes:
+  pgdata:

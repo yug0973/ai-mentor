@@ -1,0 +1,273 @@
+@import "tailwindcss";
+
+@theme {
+  /* Night-hike palette — deep forest slate, not pure black */
+  --color-bg: #12201a;
+  --color-panel: #1b2b23;
+  --color-panel-raised: #223428;
+  --color-mist: #2a3a31;
+  --color-blaze: #e8672c;
+  --color-blaze-dim: #b8511f;
+  --color-moss: #8fb27a;
+  --color-fog: #7c8b81;
+  --color-parchment: #ede8dc;
+
+  --font-display: "Big Shoulders", sans-serif;
+  --font-body: "Work Sans", sans-serif;
+  --font-mono: "IBM Plex Mono", monospace;
+}
+
+@layer base {
+  html {
+    background-color: var(--color-bg);
+    color-scheme: dark;
+  }
+
+  body {
+    font-family: var(--font-body);
+    color: var(--color-parchment);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background-color: var(--color-blaze);
+    color: var(--color-bg);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-blaze);
+    outline-offset: 3px;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: var(--font-display);
+  }
+  .font-mono-label {
+    font-family: var(--font-mono);
+  }
+}
+
+/* Trail path draw-on animation */
+@keyframes trail-draw {
+  from {
+    stroke-dashoffset: var(--trail-length, 1400);
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.trail-path {
+  stroke-dasharray: var(--trail-length, 1400);
+  animation: trail-draw 2.4s ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trail-path {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@keyframes marker-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(232, 103, 44, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(232, 103, 44, 0);
+  }
+}
+
+.marker-pulse {
+  animation: marker-pulse 2.4s ease-in-out infinite;
+}
+
+/* Music visualizer and transitions */
+@keyframes bar-dance-1 {
+  0% { height: 20%; }
+  100% { height: 90%; }
+}
+@keyframes bar-dance-2 {
+  0% { height: 35%; }
+  100% { height: 80%; }
+}
+@keyframes bar-dance-3 {
+  0% { height: 15%; }
+  100% { height: 95%; }
+}
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-bar-dance-1 {
+  animation: bar-dance-1 0.6s infinite ease-in-out alternate;
+}
+.animate-bar-dance-2 {
+  animation: bar-dance-2 0.7s infinite ease-in-out alternate;
+}
+.animate-bar-dance-3 {
+  animation: bar-dance-3 0.5s infinite ease-in-out alternate;
+}
+
+/* Hide default cursor on mouse devices — universal selector so any
+   cursor-* utility (cursor-not-allowed, cursor-grab, etc.) is covered,
+   not just an itemized tag list that drifts out of sync as the app grows */
+@media (pointer: fine) {
+  * {
+    cursor: none !important;
+  }
+  /* Range input thumbs ignore inherited cursor in WebKit/Blink and
+     Firefox — must be targeted directly via their pseudo-elements */
+  input[type="range"]::-webkit-slider-thumb {
+    cursor: none !important;
+  }
+  input[type="range"]::-moz-range-thumb {
+    cursor: none !important;
+  }
+}
+
+/* Theme-matched scrollbar — thin, flat, uses the same palette as
+   everything else instead of the OS default light-grey bar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-mist) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: var(--color-mist);
+  border-radius: 9999px;
+  border: 2px solid var(--color-bg);
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-blaze-dim);
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Thinner variant for tight inner-scroll areas (topic lists, modals) —
+   apply className="thin-scroll" where the default 10px feels heavy */
+.thin-scroll {
+  scrollbar-width: thin;
+}
+.thin-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.thin-scroll::-webkit-scrollbar-thumb {
+  border: 1px solid var(--color-bg);
+}
+
+/* Custom Cursor styles */
+.custom-cursor-ring {
+  pointer-events: none;
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 9999;
+  border-radius: 9999px;
+  border: 1px solid rgba(143, 178, 122, 0.65);
+  background-color: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: monospace;
+  font-size: 9px;
+  font-weight: bold;
+  user-select: none;
+  color: var(--color-bg);
+  will-change: transform, width, height, margin, border-color, background-color, box-shadow;
+  width: 24px;
+  height: 24px;
+  margin-top: -12px;
+  margin-left: -12px;
+  transition: width 0.18s ease-out, height 0.18s ease-out, margin 0.18s ease-out, border-color 0.18s, background-color 0.18s, box-shadow 0.18s, opacity 0.15s ease-in-out;
+  opacity: 1;
+}
+
+.custom-cursor-ring.hidden,
+.custom-cursor-dot.hidden {
+  opacity: 0;
+}
+
+.custom-cursor-ring.hovered {
+  width: 42px;
+  height: 42px;
+  margin-top: -21px;
+  margin-left: -21px;
+  border-color: var(--color-blaze);
+  background-color: rgba(232, 103, 44, 0.15);
+  box-shadow: 0 0 12px rgba(232, 103, 44, 0.45);
+}
+
+.custom-cursor-ring .hover-arrow {
+  display: none;
+  color: var(--color-blaze);
+  font-size: 11px;
+  line-height: 1;
+}
+
+.custom-cursor-ring.hovered .hover-arrow {
+  display: inline;
+  animation: pulse 1s infinite;
+}
+
+.custom-cursor-dot {
+  pointer-events: none;
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 9999;
+  border-radius: 9999px;
+  background-color: var(--color-blaze);
+  will-change: transform;
+  width: 4px;
+  height: 4px;
+  margin-top: -2px;
+  margin-left: -2px;
+  transition: transform 0.12s ease-out, opacity 0.15s ease-in-out;
+  opacity: 1;
+}
+
+.custom-cursor-dot.hovered {
+  transform: scale(0) !important;
+}
+
+/* Animated Trail Map Path */
+.trail-path {
+  stroke-dasharray: 1200;
+  stroke-dashoffset: 1200;
+  animation: draw-trail 3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes draw-trail {
+  from {
+    stroke-dashoffset: 1200;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+
+
