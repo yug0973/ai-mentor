@@ -174,6 +174,25 @@ export type MasteryScore = {
   lastUpdated: string;
 };
 
+export type LessonCodeExample = {
+  language: string;
+  code: string;
+};
+
+export type LessonPracticeQuestion = {
+  question: string;
+  options: string[]; // always length 4
+  correct_index: number; // 0-3
+  hint: string;
+};
+
+export type LessonContent = {
+  explanation: string[];
+  has_code_example: boolean;
+  code_example: LessonCodeExample | null;
+  practice_questions: LessonPracticeQuestion[]; // always length 3
+};
+
 export const api = {
   register: (input: { name: string; email: string; password: string; phoneNumber?: string }) =>
     request<RegisterResponse>("/auth/register", { method: "POST", body: input }),
@@ -263,6 +282,12 @@ export const api = {
   generateQuiz: (token: string, roadmapId: string, milestoneId: string) =>
     request<{ questions: QuizQuestion[] }>(
       `/roadmap/${roadmapId}/milestones/${milestoneId}/quiz`,
+      { method: "POST", token }
+    ),
+
+  generateLesson: (token: string, roadmapId: string, topicId: string) =>
+    request<{ lesson: LessonContent }>(
+      `/roadmap/${roadmapId}/topics/${topicId}/lesson`,
       { method: "POST", token }
     ),
 
