@@ -78,21 +78,22 @@ Set `MOCK_LLM=true` in `mentor_ai_engine/.env` to run the whole flow with zero A
 
 ## 📸 Screenshots
 
-<div align="center">
-
-**Landing**
-<img src="docs/landing1.png" width="49%" /> <img src="docs/landing2.png" width="49%" />
-
-**The Interview**
-<img src="docs/interview.png" width="80%" />
-
-**Sign In**
-<img src="docs/SignIn.png" width="80%" />
-
-**Dashboard & Roadmap**
-<img src="docs/dashbored1.png" width="49%" /> <img src="docs/dashbored2.png" width="49%" />
-
-</div>
+<table align="center">
+  <tr>
+    <td align="center" width="50%"><img src="docs/landing1.png" width="100%" /><br /><sub><b>Landing</b></sub></td>
+    <td align="center" width="50%"><img src="docs/landing2.png" width="100%" /><br /><sub><b>Landing</b></sub></td>
+  </tr>
+  <tr>
+    <td align="center" colspan="2"><img src="docs/interview.png" width="70%" /><br /><sub><b>The Interview</b></sub></td>
+  </tr>
+  <tr>
+    <td align="center" colspan="2"><img src="docs/SignIn.png" width="70%" /><br /><sub><b>Sign In</b></sub></td>
+  </tr>
+  <tr>
+    <td align="center" width="50%"><img src="docs/dashbored1.png" width="100%" /><br /><sub><b>Dashboard & Roadmap</b></sub></td>
+    <td align="center" width="50%"><img src="docs/dashbored2.png" width="100%" /><br /><sub><b>Dashboard & Roadmap</b></sub></td>
+  </tr>
+</table>
 
 ## 🛠️ Tech stack
 
