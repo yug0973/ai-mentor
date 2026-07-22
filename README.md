@@ -34,7 +34,9 @@ Trailhead              Basecamp              Switchbacks             Summit
 | 🗺️ **Generated roadmap** | Milestones → topics → prerequisites, built as a real dependency graph, not a flat list |
 | 📖 **Real lesson content** | Domain-aware — a presentation-design topic *reads* like a presentation-design lesson. Code examples only show up when code genuinely belongs |
 | 📝 **Adaptive checkpoint quizzes** | Topic-specific questions generated per milestone. Score low, and the AI rewrites your route to reinforce the gap |
+| 💬 **Coach chat** | An ongoing conversation with your mentor — check-ins, progress talk, and real remediation when you're stuck on a topic |
 | 🔐 **Email OTP verification** | Real signup flow — hashed, rate-limited, expiring codes, not a fake gate |
+| 📬 **Inactivity nudges** | Go quiet for 3+ days, and AI Mentor emails you to pull you back in |
 | 🔔 **Nudges & weekly reviews** | Keeps momentum without nagging |
 | 🎨 **A theme, not a template** | Night-hike trail-map design system — deep forest palette, trail-blaze accents, a WebGL shader backdrop, and a custom cursor |
 
@@ -54,7 +56,7 @@ Trailhead              Basecamp              Switchbacks             Summit
 
 - **`frontend/`** — React + Vite + Tailwind v4. Trail-map design system, real-time interview chat, roadmap visualization, checkpoint quizzes.
 - **`backend/`** — Node/Express/TypeScript gateway. Auth (JWT + email OTP), Postgres persistence via Prisma, scheduling, and the single source of truth for the API contract.
-- **`mentor_ai_engine/`** — FastAPI service doing all the actual AI work: interview state machine, roadmap generation, lesson content, quiz generation, adaptive rewrites — all via Gemini, all with mock-mode fallbacks for offline dev.
+- **`mentor_ai_engine/`** — FastAPI service doing all the actual AI work: interview state machine, roadmap generation, lesson content, quiz generation, adaptive rewrites, coach chat & remediation — all via Gemini, all with mock-mode fallbacks for offline dev.
 
 ## 🚀 Getting started
 
