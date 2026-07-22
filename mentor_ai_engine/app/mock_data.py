@@ -167,3 +167,15 @@ def mock_lesson_content(topic: RoadmapTopic) -> LessonContent:
             for i in range(3)
         ],
     )
+
+
+def mock_chat_reply(message: str) -> str:
+    """Fallback used only when MOCK_LLM=true — lets frontend build/test the
+    ongoing chat UI with zero API key and zero network dependency, same
+    purpose as the other mock_* functions in this file."""
+    return (
+        f'MOCK REPLY — real generation unavailable. You said: "{message}". '
+        f"This would normally be a real, context-aware mentor response referencing "
+        f"your actual roadmap and progress."
+    )
+

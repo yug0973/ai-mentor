@@ -8,6 +8,7 @@ import nudgeRoutes from "./nudge.routes";
 import reviewRoutes from "./review.routes";
 import pushRoutes from "./push.routes";
 import feedbackRoutes from "./feedback.routes";
+import chatRoutes from "./chat.routes";
 
 const router = Router();
 
@@ -20,5 +21,6 @@ router.use("/nudges", nudgeRoutes);
 router.use("/reviews", reviewRoutes);
 router.use("/push", pushRoutes);
 router.use("/feedback", feedbackRoutes);
+router.use("/chat", chatRoutes);
 
 export default router;

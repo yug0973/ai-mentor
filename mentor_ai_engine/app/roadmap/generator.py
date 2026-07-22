@@ -156,10 +156,18 @@ class RoadmapGenerator:
 
     @staticmethod
     def _resolve_status(title: str, prerequisites: list[str], known_skills: list[str]) -> str:
-        title_l = title.lower()
+        # Was: a loose bidirectional substring match ("python" in "python
+        # basics" or vice versa), which marked topics — and any milestone
+        # made up entirely of such topics — as "completed" the instant the
+        # roadmap was generated, before the learner had done anything.
+        # Knowing a skill in general doesn't mean this specific curriculum
+        # topic is already mastered, so this now only auto-completes on a
+        # genuine exact match (case/whitespace-insensitive) between the
+        # topic title and a reported known skill.
+        title_norm = " ".join(title.strip().lower().split())
         for skill in known_skills:
-            skill_l = skill.strip().lower()
-            if skill_l and (skill_l in title_l or title_l in skill_l):
+            skill_norm = " ".join(skill.strip().lower().split())
+            if skill_norm and skill_norm == title_norm:
                 return "completed"
         return "available" if not prerequisites else "locked"
 

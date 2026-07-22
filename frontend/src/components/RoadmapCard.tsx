@@ -16,7 +16,7 @@ export const RoadmapCard: React.FC<RoadmapCardProps> = ({
   const totalTopics = milestone.topics.length;
   const completedTopics = milestone.topics.filter((t) => t.status === 'completed').length;
   const progressPercent = totalTopics === 0 ? 0 : Math.round((completedTopics / totalTopics) * 100);
-  const allCompleted = completedTopics === totalTopics;
+  const allCompleted = totalTopics > 0 && completedTopics === totalTopics;
 
   return (
     <div

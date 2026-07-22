@@ -14,6 +14,7 @@ import SessionLogModal from "../components/SessionLogModal";
 import CheckpointQuiz from "../components/CheckpointQuiz";
 import TopicStudyModal from "../components/TopicStudyModal";
 import { RoadmapCard } from "../components/RoadmapCard";
+import { ChatPanel } from "../components/ChatPanel";
 
 
 export default function Dashboard() {
@@ -33,6 +34,10 @@ export default function Dashboard() {
   const [chatMessage, setChatMessage] = useState("");
   const [chatHistory, setChatHistory] = useState<Array<{ role: string; content: string }>>([]);
   const [isChatSending, setIsChatSending] = useState(false);
+
+  // Ongoing mentor chat panel (separate from the interview-only chat above —
+  // available any time, not gated to interviewSession)
+  const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
 
   // Transition & Action states
   const [isGeneratingRoadmap, setIsGeneratingRoadmap] = useState(false);
@@ -383,6 +388,12 @@ export default function Dashboard() {
           <span className="text-xs text-fog font-mono-label hidden sm:inline">
             Hiker: <strong className="text-parchment font-semibold">{user?.name}</strong>
           </span>
+          <button
+            onClick={() => setIsChatPanelOpen(true)}
+            className="rounded-full border border-blaze/50 bg-blaze/10 px-4 py-1.5 text-xs text-blaze font-semibold transition hover:bg-blaze/20"
+          >
+            Ask Mentor
+          </button>
           <button
             onClick={logout}
             className="rounded-full border border-mist px-4 py-1.5 text-xs text-fog transition hover:border-blaze hover:text-parchment hover:bg-blaze/5"
@@ -985,6 +996,13 @@ export default function Dashboard() {
           }}
         />
       )}
+
+      {/* Ongoing Mentor Chat — available any time, not gated to onboarding/roadmap state */}
+      <ChatPanel
+        token={activeToken}
+        isOpen={isChatPanelOpen}
+        onClose={() => setIsChatPanelOpen(false)}
+      />
 
       {/* Footer */}
       <footer className="border-t border-mist bg-panel px-6 py-4 mt-12 text-center text-xs text-fog font-mono-label">

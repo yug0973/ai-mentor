@@ -43,6 +43,7 @@ const TIMEOUTS_MS = {
   feedbackSummary: 5_000, // no LLM at all
   quizGenerate: 25_000, // single batched LLM call covering all topics in a milestone
   lessonGenerate: 25_000, // single LLM call producing explanation + optional code + 3 questions
+  chatRespond: 20_000, // single LLM call, grounded in profile/roadmap/mastery + recent history
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -496,6 +497,42 @@ export function logFeedbackEvent(
 export function getFeedbackSummary(userId?: string): Promise<FeedbackSummary> {
   const qs = userId ? `?user_id=${encodeURIComponent(userId)}` : "";
   return request("GET", `/feedback/summary${qs}`, TIMEOUTS_MS.feedbackSummary);
+}
+
+// ---------------------------------------------------------------------------
+// Ongoing Mentor Chat
+// ---------------------------------------------------------------------------
+
+export interface ChatMessageTurn {
+  role: "user" | "mentor";
+  content: string;
+}
+
+export interface ChatWithMentorParams {
+  userId: string;
+  message: string;
+  learnerProfile: LearnerProfile;
+  roadmap?: Roadmap | null;
+  masteryScores?: TopicMastery[];
+  conversationHistory?: ChatMessageTurn[];
+}
+
+export interface ChatResponse {
+  reply: string;
+  changed: boolean;
+  change_summary: string | null;
+  updated_roadmap: Roadmap | null;
+}
+
+export function chatWithMentor(params: ChatWithMentorParams): Promise<ChatResponse> {
+  return request("POST", "/chat/respond", TIMEOUTS_MS.chatRespond, {
+    user_id: params.userId,
+    message: params.message,
+    learner_profile: params.learnerProfile,
+    roadmap: params.roadmap ?? null,
+    mastery_scores: params.masteryScores ?? [],
+    conversation_history: params.conversationHistory ?? [],
+  });
 }
 
 // ---------------------------------------------------------------------------

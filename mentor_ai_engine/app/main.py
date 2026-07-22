@@ -9,7 +9,7 @@ from app.models import (
     InterviewMessageRequest,
     InterviewMessageResponse,
 )
-from app.routers import roadmap, sessions, adaptive, intent, nudges, reviews, feedback, quiz, lesson
+from app.routers import roadmap, sessions, adaptive, intent, nudges, reviews, feedback, quiz, lesson, chat
 
 app = FastAPI(
     title="Mentor AI Engine",
@@ -37,6 +37,7 @@ app.include_router(reviews.router)
 app.include_router(feedback.router)
 app.include_router(quiz.router)
 app.include_router(lesson.router)
+app.include_router(chat.router)
 
 
 @app.get("/health")
@@ -52,6 +53,7 @@ def health_check():
             "6_nudges": "live",
             "7_weekly_review": "live",
             "8_feedback_loop": "live",
+            "9_ongoing_mentor_chat": "live",
         },
     }
 

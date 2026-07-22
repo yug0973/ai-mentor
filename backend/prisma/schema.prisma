@@ -38,6 +38,7 @@ model User {
   engineFeedbackEvents EngineFeedbackEvent[]
   pushSubscriptions PushSubscription[]
   emailOtps        EmailOtp[]
+  chatMessages     ChatMessage[]
 
   @@map("users")
 }
@@ -219,4 +220,24 @@ model PushSubscription {
 
   @@index([userId])
   @@map("push_subscriptions")
+}
+
+// -----------------------------------------------------------------------
+// Ongoing mentor chat: persisted history for the "talk to your mentor any
+// time" feature, distinct from InterviewSession's conversation_history —
+// that one is onboarding-only and lives in a single JSON blob; this is
+// unbounded, ongoing, and queried chronologically, so it's a proper table.
+// -----------------------------------------------------------------------
+
+model ChatMessage {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  role      String   // "user" | "mentor"
+  content   String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("chat_messages")
 }

@@ -174,6 +174,14 @@ export type MasteryScore = {
   lastUpdated: string;
 };
 
+export type ChatMessage = {
+  id: string;
+  userId: string;
+  role: "user" | "mentor";
+  content: string;
+  createdAt: string;
+};
+
 export type LessonCodeExample = {
   language: string;
   code: string;
@@ -338,4 +346,14 @@ export const api = {
 
   getFeedbackSummary: (token: string) =>
     request<any>("/feedback/summary", { token }),
+
+  sendChatMessage: (token: string, message: string) =>
+    request<{ userMessage: ChatMessage; mentorMessage: ChatMessage }>("/chat/message", {
+      method: "POST",
+      body: { message },
+      token,
+    }),
+
+  getChatHistory: (token: string) =>
+    request<ChatMessage[]>("/chat/history", { token }),
 };

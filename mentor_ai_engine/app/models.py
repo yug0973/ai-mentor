@@ -232,3 +232,32 @@ class FeedbackEventRequest(BaseModel):
 
 class FeedbackEventResponse(BaseModel):
     logged: bool
+
+
+# ---------- Ongoing Mentor Chat (post-onboarding, throughout the journey) ----------
+
+class ChatMessageTurn(BaseModel):
+    role: Literal["user", "mentor"]
+    content: str
+
+
+class ChatRequest(BaseModel):
+    user_id: str
+    message: str
+    learner_profile: LearnerProfile
+    roadmap: Roadmap | None = Field(
+        None, description="Learner's active roadmap, if one exists yet — omitted pre-roadmap."
+    )
+    mastery_scores: list[TopicMastery] = Field(default_factory=list)
+    conversation_history: list[ChatMessageTurn] = Field(
+        default_factory=list,
+        description="Recent prior turns, oldest first, for continuity. Caller (backend) "
+        "decides how much history to include — this endpoint is stateless.",
+    )
+
+
+class ChatResponse(BaseModel):
+    reply: str
+    changed: bool = False
+    change_summary: str | None = None
+    updated_roadmap: Roadmap | None = None
